@@ -11,6 +11,15 @@ import 'leaflet-draw';
 import * as geojson from 'geojson';
 import { randomUUID } from 'crypto';
 
+// Extend Leaflet types to include Draw control
+declare module 'leaflet' {
+  namespace Control {
+    interface Draw extends L.Control {
+      // Add any specific methods or properties if needed
+    }
+  }
+}
+
 // Local type declaration for AOI
 type AOI = {
   id: string;
