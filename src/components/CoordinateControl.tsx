@@ -34,7 +34,7 @@ export default function CoordinateControl() {
     const updateCoordinate = (e: L.LeafletMouseEvent) => {
       try {
         // Convert to MGRS
-        const mgrsCoord = mgrs.forward(e.latlng.lat, e.latlng.lng);
+        const mgrsCoord = mgrs.forward([e.latlng.lng, e.latlng.lat]);
         setCoordinate(mgrsCoord);
         
         // Update control content
