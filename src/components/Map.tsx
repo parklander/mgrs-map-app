@@ -11,11 +11,19 @@ import 'leaflet-draw';
 import * as geojson from 'geojson';
 import { randomUUID } from 'crypto';
 
-// Extend Leaflet types to include Draw control
-declare module 'leaflet' {
-  namespace Control {
-    interface Draw extends L.Control {
-      // Add any specific methods or properties if needed
+// Explicit type declaration for Leaflet Draw
+interface LeafletDrawEvent {
+  layer: L.Layer;
+  layerType: string;
+}
+
+// Extend Leaflet types to include Draw control and events
+declare global {
+  namespace L {
+    namespace Draw {
+      interface Event {
+        CREATED: string;
+      }
     }
   }
 }
@@ -194,7 +202,7 @@ function MapContent({
 }: { 
   aois: AOI[], 
   setAois: (aois: AOI[]) => void,
-  onCreated: (e: any) => void,
+  onCreated: (e: L.DrawEvents.Created) => void,
   selectedAoiId: string | null,
   setSelectedAoiId: (id: string | null) => void,
   onMapClick: () => void,
@@ -235,7 +243,7 @@ function MapContent({
     drawControlRef.current = drawControl;
 
     // Listen for draw created event
-    const drawCreatedHandler = (e: any) => {
+    const drawCreatedHandler = (e: L.DrawEvents.Created) => {
       const layer = e.layer;
       onCreated(e);
     };
@@ -327,7 +335,7 @@ function MapContent({
   useEffect(() => {
     if (!map) return;
 
-    const handleEdit = (e: any) => {
+    const handleEdit = (e: L.DrawEvents.Edited) => {
       const layers = e.layers;
       layers.eachLayer((layer: L.Polygon) => {
         const newBounds = layer.getLatLngs()[0] as L.LatLng[];
@@ -541,45 +549,40 @@ export default function Map() {
     ];
   };
 
-  const handleCreated = (e: any) => {
+  const handleCreated = (e: L.DrawEvents.Created) => {
     const layer = e.layer;
     const coords = layer.getLatLngs()[0];
+    const latLngs = coords as L.LatLng[];
 
-    // Get bounding box coordinates
-    const lats = coords.map(coord => coord.lat);
-    const lngs = coords.map(coord => coord.lng);
-    const minLat = Math.min(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLat = Math.max(...lats);
-    const maxLng = Math.max(...lngs);
+    // Convert coordinates to MGRS
+    const mgrsCoords = latLngs.map(latlng => 
+      mgrs.forward(latlng.lat, latlng.lng)
+    );
 
-    // Calculate approximate dimensions in kilometers
-    const latDiff = maxLat - minLat;
-    const lngDiff = maxLng - minLng;
-    const earthRadius = 6371; // Earth's radius in km
-    const width = (Math.PI / 180) * earthRadius * Math.cos((minLat + maxLat) * Math.PI / 360) * lngDiff;
-    const height = (Math.PI / 180) * earthRadius * latDiff;
+    // Get the center coordinate
+    const centerLat = latLngs.reduce((sum, latlng) => sum + latlng.lat, 0) / latLngs.length;
+    const centerLng = latLngs.reduce((sum, latlng) => sum + latlng.lng, 0) / latLngs.length;
+    const centerMgrs = mgrs.forward(centerLat, centerLng);
 
-    try {
-      // Convert lower-left and upper-right coordinates to MGRS
-      const llMGRS = mgrs.forward([minLng, minLat]);
-      const urMGRS = mgrs.forward([maxLng, maxLat]);
+    // Create new AOI
+    const newAoi: AOI = {
+      id: randomUUID(),
+      name: `AOI ${aois.length + 1}`,
+      mgrsCoordinate: centerMgrs,
+      dimensions: `${calculatePolygonArea(latLngs).toFixed(2)} sq m`,
+      bounds: latLngs.map(latlng => [latlng.lng, latlng.lat] as [number, number]),
+      dateCreated: new Date().toISOString(),
+      layer: layer
+    };
 
-      const newAOI: AOI = {
-        id: Date.now().toString(),
-        mgrsCoordinate: `${llMGRS} - ${urMGRS}`,
-        dimensions: `${width.toFixed(1)}km x ${height.toFixed(1)}km`,
-        bounds: coords.map((coord: L.LatLng) => [coord.lat, coord.lng]),
-        name: `AOI ${aois.length + 1}`,
-        dateCreated: new Date().toISOString(),
-        layer: layer
-      };
+    // Add the new AOI
+    const updatedAois = [...aois, newAoi];
+    setAois(updatedAois);
+    storage.save(updatedAois);
 
-      setAois([...aois, newAOI]);
-    } catch (error) {
-      console.error('Error converting coordinates:', error);
-      alert('Error creating AOI: Invalid coordinates');
-      layer.remove();
+    // Zoom to the newly created AOI
+    if (latLngs.length > 0) {
+      zoomToBounds(newAoi.bounds);
     }
   };
 
