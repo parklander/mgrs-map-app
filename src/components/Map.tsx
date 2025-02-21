@@ -11,20 +11,6 @@ import 'leaflet-draw';
 import * as geojson from 'geojson';
 import { randomUUID } from 'crypto';
 
-// Explicit type declaration for Leaflet Draw events
-declare module 'leaflet' {
-  namespace DrawEvents {
-    interface Created {
-      layer: L.Layer;
-      layerType: string;
-    }
-    
-    interface Edited {
-      layers: L.LayerGroup;
-    }
-  }
-}
-
 // Local type declaration for AOI
 type AOI = {
   id: string;
@@ -199,7 +185,7 @@ function MapContent({
 }: { 
   aois: AOI[], 
   setAois: (aois: AOI[]) => void,
-  onCreated: (e: L.DrawEvents.Created) => void,
+  onCreated: (e: any) => void,
   selectedAoiId: string | null,
   setSelectedAoiId: (id: string | null) => void,
   onMapClick: () => void,
@@ -215,8 +201,11 @@ function MapContent({
 
   // Initialize feature group and draw control
   useEffect(() => {
-    // Create feature group
-    featureGroupRef.current = new L.FeatureGroup();
+    if (!map) return;
+
+    // Create feature group for drawn layers
+    const featureGroup = new L.FeatureGroup();
+    featureGroupRef.current = featureGroup;
     featureGroupRef.current.addTo(map);
 
     // Create draw control
@@ -224,37 +213,54 @@ function MapContent({
       draw: {
         polygon: true,
         polyline: false,
-        rectangle: false,
         circle: false,
+        rectangle: false,
         marker: false,
         circlemarker: false
       },
       edit: {
-        featureGroup: featureGroupRef.current,
-        remove: false
+        featureGroup: featureGroupRef.current
       }
     });
+    drawControlRef.current = drawControl;
 
     // Add draw control to map
     map.addControl(drawControl);
-    drawControlRef.current = drawControl;
 
     // Listen for draw created event
-    const drawCreatedHandler = (e: L.DrawEvents.Created) => {
+    const drawCreatedHandler = (e: any) => {
       const layer = e.layer;
       onCreated(e);
     };
     map.on(L.Draw.Event.CREATED, drawCreatedHandler);
 
+    // Listen for draw edited event
+    const handleEdit = (e: any) => {
+      const layers = e.layers;
+      layers.eachLayer((layer: L.Polygon) => {
+        const newBounds = layer.getLatLngs()[0] as L.LatLng[];
+        // Update AOI with new bounds
+        const updatedAois = aois.map(aoi => {
+          if (aoi.layer === layer) {
+            return {
+              ...aoi,
+              bounds: newBounds.map(latlng => [latlng.lng, latlng.lat] as [number, number]),
+              dimensions: `${calculatePolygonArea(newBounds).toFixed(2)} sq m`
+            };
+          }
+          return aoi;
+        });
+        setAois(updatedAois);
+        storage.save(updatedAois);
+      });
+    };
+    map.on(L.Draw.Event.EDITED, handleEdit);
+
     // Cleanup function
     return () => {
-      if (featureGroupRef.current) {
-        map.removeLayer(featureGroupRef.current);
-      }
-      if (drawControlRef.current) {
-        map.removeControl(drawControlRef.current);
-      }
+      map.removeControl(drawControl);
       map.off(L.Draw.Event.CREATED, drawCreatedHandler);
+      map.off(L.Draw.Event.EDITED, handleEdit);
     };
   }, [map, onCreated]);
 
@@ -318,7 +324,7 @@ function MapContent({
 
         // Start edit mode if enabled
         if (editMode) {
-          const EditHandler = (L as any).EditToolbar.Edit;
+          const EditHandler = L.EditToolbar.Edit;
           const handler = new EditHandler(map, {
             featureGroup: featureGroupRef.current
           });
@@ -332,7 +338,7 @@ function MapContent({
   useEffect(() => {
     if (!map) return;
 
-    const handleEdit = (e: L.DrawEvents.Edited) => {
+    const handleEdit = (e: any) => {
       const layers = e.layers;
       layers.eachLayer((layer: L.Polygon) => {
         const newBounds = layer.getLatLngs()[0] as L.LatLng[];
@@ -546,7 +552,7 @@ export default function Map() {
     ];
   };
 
-  const handleCreated = (e: L.DrawEvents.Created) => {
+  const handleCreated = (e: any) => {
     const layer = e.layer;
     const coords = layer.getLatLngs()[0];
     const latLngs = coords as L.LatLng[];
