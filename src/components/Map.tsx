@@ -11,19 +11,16 @@ import 'leaflet-draw';
 import * as geojson from 'geojson';
 import { randomUUID } from 'crypto';
 
-// Explicit type declaration for Leaflet Draw
-interface LeafletDrawEvent {
-  layer: L.Layer;
-  layerType: string;
-}
-
-// Extend Leaflet types to include Draw control and events
-declare global {
-  namespace L {
-    namespace Draw {
-      interface Event {
-        CREATED: string;
-      }
+// Explicit type declaration for Leaflet Draw events
+declare module 'leaflet' {
+  namespace DrawEvents {
+    interface Created {
+      layer: L.Layer;
+      layerType: string;
+    }
+    
+    interface Edited {
+      layers: L.LayerGroup;
     }
   }
 }
