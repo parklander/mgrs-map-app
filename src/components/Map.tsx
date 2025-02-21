@@ -175,7 +175,7 @@ const importGeoJSON = (file: File, setAois: (aois: AOI[]) => void) => {
 function MapContent({ 
   aois, 
   setAois, 
-  onCreated,
+  onCreated: (e: L.DrawEvents.Created) => void,
   selectedAoiId,
   setSelectedAoiId,
   onMapClick,
@@ -185,7 +185,7 @@ function MapContent({
 }: { 
   aois: AOI[], 
   setAois: (aois: AOI[]) => void,
-  onCreated: (e: any) => void,
+  onCreated: (e: L.DrawEvents.Created) => void,
   selectedAoiId: string | null,
   setSelectedAoiId: (id: string | null) => void,
   onMapClick: () => void,
@@ -228,14 +228,14 @@ function MapContent({
     map.addControl(drawControl);
 
     // Listen for draw created event
-    const drawCreatedHandler = (e: any) => {
+    const drawCreatedHandler = (e: L.DrawEvents.Created) => {
       const layer = e.layer;
       onCreated(e);
     };
     map.on(L.Draw.Event.CREATED, drawCreatedHandler);
 
     // Listen for draw edited event
-    const handleEdit = (e: any) => {
+    const handleEdit = (e: L.DrawEvents.Edited) => {
       const layers = e.layers;
       layers.eachLayer((layer: L.Polygon) => {
         const newBounds = layer.getLatLngs()[0] as L.LatLng[];
@@ -552,7 +552,7 @@ export default function Map() {
     ];
   };
 
-  const handleCreated = (e: any) => {
+  const handleCreated = (e: L.DrawEvents.Created) => {
     const layer = e.layer;
     const coords = layer.getLatLngs()[0];
     const latLngs = coords as L.LatLng[];
