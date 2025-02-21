@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "mgrs": ["./src/types/mgrs.d.ts"]
+      "mgrs": ["./src/types/mgrs.d.ts"],
+      "@/types/aoi": ["./src/types/aoi.ts"]
     }
   },
   "include": [
@@ -28,7 +29,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/types/*.d.ts"
+    "src/types/*.d.ts",
+    "src/types/*.ts"
   ],
   "exclude": [
     "node_modules"
