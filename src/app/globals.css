@@ -19,3 +19,16 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.aoi-label {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: bold;
+  color: blue;
+  text-shadow: 
+    -1px -1px 0 white,
+    1px -1px 0 white,
+    -1px 1px 0 white,
+    1px 1px 0 white;
+}
